@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Data">
+      <UniqueIdentifier>{aca413bb-6c76-404b-9ace-3d6cc7c86df6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -21,25 +24,34 @@
     <ClCompile Include="ObjLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Render.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="..\lib\glew32.lib" />
-    <Library Include="..\lib\glfw3dll.lib" />
+    <Media Include="monkey.obj" />
   </ItemGroup>
   <ItemGroup>
-    <Media Include="..\lib\glew32.dll">
-      <Filter>Resource Files</Filter>
-    </Media>
-    <Media Include="..\lib\glfw3.dll">
-      <Filter>Resource Files</Filter>
-    </Media>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="TriMesh.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ObjLoader.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TriMesh.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Render.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="vsMeshShader.glsl">
+      <Filter>Data</Filter>
+    </None>
+    <None Include="fsMeshShader.glsl">
+      <Filter>Data</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\lib\glew32s.lib" />
+    <Library Include="..\lib\glfw3.lib" />
   </ItemGroup>
 </Project>

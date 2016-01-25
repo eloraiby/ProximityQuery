@@ -1,6 +1,6 @@
 #pragma once
 
 #include <string>
-#include "TriMesh.h"
+#include "TriMesh.hpp"
 
 TriMesh::Ptr loadFrom(const std::string& path);

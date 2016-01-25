@@ -139,9 +139,11 @@ struct AABBNode::Leaf : public AABBNode {
 //
 // Cache friendly collision mesh: This is done by building a bounding box tree and keeping leaves and nodes separate.
 // - the nodes are lightweight structures and the whole table is kept in L1 or L2 cache.
-// - only the closest leaf is kept in L1 or L2 cache and nothing else is needed.
+// - only the closest leaf is kept in L1, L2 or L3 cache and nothing else is needed.
 //
 struct CollisionMesh {
+    typedef std::shared_ptr<CollisionMesh> Ptr;
+
     CollisionMesh(const std::vector<AABBNode>& nodes, const std::vector<TriMesh::Ptr>& leaves) {}
 
     const std::vector<AABBNode>&      nodes() const { return nodes_; }
@@ -150,4 +152,19 @@ struct CollisionMesh {
 private:
     std::vector<AABBNode>       nodes_;
     std::vector<TriMesh::Ptr>   leaves_;
+};
+
+struct ProximityQuery {
+
+    struct Result {
+
+    private:
+        size_t      node_;
+        size_t      leaf_;
+
+        friend struct ProximityQuery;
+    };
+
+private:
+    CollisionMesh::Ptr  cm_;
 };

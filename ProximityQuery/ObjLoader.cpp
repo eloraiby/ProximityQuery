@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 using namespace std;
+using namespace glm;
 
 struct objVertex {
     int     vId;
@@ -103,6 +104,7 @@ loadFrom(const std::string& path) {
             tri.v[v].position = temp_vertices[vertexIndex - 1];
             //glm::vec2 uv = temp_uvs[uvIndex - 1];
             tri.v[v].normal = temp_normals[normalIndex - 1];
+            tri.v[v].color = vec4(.5f, .5f, .5f, .5f);
         }
         // Put the attributes in buffers
         tris.push_back(tri);
