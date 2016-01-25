@@ -33,8 +33,7 @@ protected:
 struct LineShader {
     typedef std::shared_ptr<LineShader> Ptr;
 
-    void            render(const glm::mat4& mvp
-                          , GLuint vb
+    void            render( GLuint vb
                           , size_t lineCount) const;
 
 
@@ -43,37 +42,39 @@ struct LineShader {
 private:
     LineShader(Shader::Ptr shader_
         , GLuint vertexPosition_
-        , GLuint vertexColor_
-        , GLuint projViewModel_);
+        , GLuint vertexColor_);
 
     Shader::Ptr shader_;
 
     GLuint      vertexPosition_;
     GLuint      vertexColor_;
-
-    GLuint      projViewModel_;
 };
 
 struct LineQueueView {
     typedef std::shared_ptr<LineQueueView> Ptr;
     
     struct Vertex {
-        glm::vec3   position;
+        glm::vec4   position;
         glm::vec4   color;
+
+        Vertex() {}
+        Vertex(const glm::vec4& p, const glm::vec4& c) : position(p), color(c) {}
     };
+
+    ~LineQueueView();
+
+    void            addLine(const glm::mat4& mvp, const glm::vec3& v0, const glm::vec3& v1, const glm::vec4& color);
+    void            flush();
 
     static Ptr      create(size_t maxLineCount);
 
-    void            addLine(const glm::vec3& v0, const glm::vec3& v1, const glm::vec4& color);
-    void            flush();
-
 private:
-    LineQueueView(GLuint vb, size_t maxLineCount) : vb_(vb), maxLineCount_(maxLineCount) { verts_.resize(maxLineCount * 2); }
+    LineQueueView(GLuint vb, size_t maxLineCount) : verts_(new Vertex[maxLineCount * 2]), vb_(vb), maxLineCount_(maxLineCount), lineCount_(0) {}
 
-
-    std::vector<Vertex>     verts_;
+    Vertex*         verts_;
     GLuint          vb_;
     size_t          maxLineCount_;
+    size_t          lineCount_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

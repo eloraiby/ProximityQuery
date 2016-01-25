@@ -67,7 +67,7 @@ Shader::fromFiles(const std::string& vsPath, const std::string& fsPath) {
     auto res = Shader::fromStrings(vs, fs);
 
     if (res != nullptr) {
-        cout << "shaders " << vsPath << " and " << fsPath << " compiled OK..." << endl;
+        std::cout << "shaders " << vsPath << " and " << fsPath << " compiled OK..." << endl;
     }
 
     return res;
@@ -77,13 +77,11 @@ Shader::fromFiles(const std::string& vsPath, const std::string& fsPath) {
 
 LineShader::LineShader(Shader::Ptr shader
     , GLuint vertexPosition
-    , GLuint vertexColor
-    , GLuint projViewModel)
+    , GLuint vertexColor)
 
     : shader_(shader)
     , vertexPosition_(vertexPosition)
     , vertexColor_(vertexColor)
-    , projViewModel_(projViewModel)
 {}
 
 LineShader::Ptr
@@ -112,41 +110,28 @@ LineShader::instance() {
             cout << "Vertex Attrib (" << i << "): " << buff << endl;
         }
 
-        for (int i = 0; i < numActiveUniforms; ++i) {
-            glGetActiveUniform(shader->program(), i, MAX_BUFF, &strLen, &size, &type, buff);
-            cout << "Uniform (" << i << "): " << buff << endl;
-        }
-
         auto vertexPosition = glGetAttribLocation(shader->program(), "vertexPosition");
         assert(glGetError() == GL_NO_ERROR);
 
         auto vertexColor = glGetAttribLocation(shader->program(), "vertexColor");
         assert(glGetError() == GL_NO_ERROR);
 
-        auto projViewModel = glGetUniformLocation(shader->program(), "projViewModel");
-        assert(glGetError() == GL_NO_ERROR);
-
-        sInstance = Ptr(new LineShader(shader, vertexPosition, vertexColor, projViewModel));
+        sInstance = Ptr(new LineShader(shader, vertexPosition, vertexColor));
     }
 
     return sInstance;
 }
 
 void
-LineShader::render(const glm::mat4& mvp
-    , GLuint vb
-    , size_t lineCount) const
-{
+LineShader::render(GLuint vb, size_t lineCount) const {
     glUseProgram(shader_->program());
     glBindBuffer(GL_ARRAY_BUFFER, vb);
 
-    glVertexAttribPointer(vertexPosition_, 3, GL_FLOAT, GL_FALSE, sizeof(LineQueueView::Vertex), reinterpret_cast<void*>(offsetof(LineQueueView::Vertex, position)));
-    glVertexAttribPointer(vertexColor_, 3, GL_FLOAT, GL_FALSE, sizeof(LineQueueView::Vertex), reinterpret_cast<void*>(offsetof(LineQueueView::Vertex, color)));
+    glVertexAttribPointer(vertexPosition_, 4, GL_FLOAT, GL_FALSE, sizeof(LineQueueView::Vertex), reinterpret_cast<void*>(offsetof(LineQueueView::Vertex, position)));
+    glVertexAttribPointer(vertexColor_, 4, GL_FLOAT, GL_FALSE, sizeof(LineQueueView::Vertex), reinterpret_cast<void*>(offsetof(LineQueueView::Vertex, color)));
 
     glEnableVertexAttribArray(vertexPosition_);
     glEnableVertexAttribArray(vertexColor_);
-
-    glUniformMatrix4fv(projViewModel_, 1, GL_FALSE, &(mvp[0].x));
 
     glDrawArrays(GL_LINES, 0, lineCount * 2);
 
@@ -171,14 +156,30 @@ LineQueueView::create(size_t maxLineCount) {
     return Ptr(new LineQueueView(vb, maxLineCount));
 }
 
-void
-LineQueueView::addLine(const glm::vec3& v0, const glm::vec3& v1, const glm::vec4& color) {
+LineQueueView::~LineQueueView() {
+    glDeleteBuffers(1, &vb_);
+    delete[] verts_;
+}
 
+void
+LineQueueView::addLine(const glm::mat4& mvp, const glm::vec3& v0, const glm::vec3& v1, const glm::vec4& color) {
+    if (lineCount_ + 1 > maxLineCount_) {
+        flush();
+        lineCount_ = 0;
+    }
+
+    verts_[lineCount_ * 2] = Vertex(mvp * vec4(v0, 1.0f), color);
+    verts_[lineCount_ * 2 + 1] = Vertex(mvp * vec4(v1, 1.0f), color);
+    ++lineCount_;
 }
 
 void
 LineQueueView::flush() {
-
+    glBindBuffer(GL_ARRAY_BUFFER, vb_);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, lineCount_ * 2 * sizeof(Vertex), verts_);
+    LineShader::instance()->render(vb_, lineCount_);
+    lineCount_ = 0;
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -272,7 +273,7 @@ TriMeshShader::render(const glm::mat4& proj
     
     glVertexAttribPointer(vertexPosition_, 3, GL_FLOAT, GL_FALSE, sizeof(TriMesh::Vertex), reinterpret_cast<void*>(offsetof(TriMesh::Vertex, position)));
     glVertexAttribPointer(vertexNormal_  , 3, GL_FLOAT, GL_FALSE, sizeof(TriMesh::Vertex), reinterpret_cast<void*>(offsetof(TriMesh::Vertex, normal)));
-    glVertexAttribPointer(vertexColor_   , 3, GL_FLOAT, GL_FALSE, sizeof(TriMesh::Vertex), reinterpret_cast<void*>(offsetof(TriMesh::Vertex, color)));
+    glVertexAttribPointer(vertexColor_   , 4, GL_FLOAT, GL_FALSE, sizeof(TriMesh::Vertex), reinterpret_cast<void*>(offsetof(TriMesh::Vertex, color)));
 
     glEnableVertexAttribArray(vertexPosition_);
     glEnableVertexAttribArray(vertexNormal_);
