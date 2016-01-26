@@ -63,7 +63,14 @@ struct LineQueueView {
 
     ~LineQueueView();
 
-    void            addLine(const glm::mat4& mvp, const glm::vec3& v0, const glm::vec3& v1, const glm::vec4& color);
+    void            queueLine(const glm::mat4& mvp, const glm::vec3& v0, const glm::vec3& v1, const glm::vec4& color);
+
+    void            queueCircleXY(const glm::mat4& mvp, float radius, float step, const glm::vec4& color);
+    void            queueCircleYZ(const glm::mat4& mvp, float radius, float step, const glm::vec4& color);
+    void            queueCircleXZ(const glm::mat4& mvp, float radius, float step, const glm::vec4& color);
+
+    void            queueCirclesXYZ(const glm::mat4& mvp, float radius, float step, const glm::vec4& color);
+
     void            flush();
 
     static Ptr      create(size_t maxLineCount);
@@ -129,3 +136,4 @@ private:
     size_t          triCount_;
     GLuint          vb_;
 };
+

@@ -16,6 +16,12 @@
     <Filter Include="Data">
       <UniqueIdentifier>{aca413bb-6c76-404b-9ace-3d6cc7c86df6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\imgui">
+      <UniqueIdentifier>{e9c4c808-2bd4-4d36-9234-da7341780156}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\imgui">
+      <UniqueIdentifier>{f9cf9058-e6ac-49d9-a933-e8946b9ed46c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -26,6 +32,12 @@
     </ClCompile>
     <ClCompile Include="Render.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\imguiRenderGL3.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\imgui.cpp">
+      <Filter>Source Files\imgui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -41,17 +53,37 @@
     <ClInclude Include="Render.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="imgui\stb_truetype.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imgui.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imguiRenderGL3.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="vsMeshShader.glsl">
+    <None Include="fsMesh.glsl">
       <Filter>Data</Filter>
     </None>
-    <None Include="fsMeshShader.glsl">
+    <None Include="vsMesh.glsl">
+      <Filter>Data</Filter>
+    </None>
+    <None Include="vsLine.glsl">
+      <Filter>Data</Filter>
+    </None>
+    <None Include="fsLine.glsl">
       <Filter>Data</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
     <Library Include="..\lib\glew32s.lib" />
     <Library Include="..\lib\glfw3.lib" />
+  </ItemGroup>
+  <ItemGroup>
+    <Font Include="DroidSans.ttf">
+      <Filter>Data</Filter>
+    </Font>
   </ItemGroup>
 </Project>

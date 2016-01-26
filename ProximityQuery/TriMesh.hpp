@@ -32,6 +32,21 @@ struct Segment {
     glm::vec3   start() const { return start_; }
     glm::vec3   end() const { return end_; }
 
+    // get the closest point on segment
+    static inline glm::vec3 closestPointOnSegment(const Segment& s, const glm::vec3& pt) {
+        auto dir = s.end_ - s.start_;
+        auto dir2pt = pt - s.start_;
+
+        auto d = glm::dot(dir, dir2pt);
+        auto n = glm::dot(dir, dir);
+
+        if (d < 0.0f) return s.start_;
+        if (d > n) return s.end_;
+
+        auto t = d / n;
+        return s.start_ + t * dir;
+    }
+
 private:
     glm::vec3   start_;
     glm::vec3   end_;
@@ -42,7 +57,7 @@ struct AABB {
     glm::vec3   min() const { return min_; }
     glm::vec3   max() const { return max_; }
 
-    static inline AABB intersect(const AABB& a, const AABB& b) {
+    static inline AABB intersection(const AABB& a, const AABB& b) {
         auto aMin = a.min();
         auto aMax = a.max();
         auto bMin = b.min();
@@ -53,7 +68,24 @@ struct AABB {
         return AABB(mn, mx);
     }
 
+    // Classic Graphcis Gems 2
+    static inline bool  intersectSphere(const AABB& bbox, const glm::vec3& center, float radius) {
+        auto dist = 0.0f;
+
+        if (center.x < bbox.min_.x) { dist += sqr_(center.x - bbox.min_.x); }
+        else if (center.x > bbox.max_.x) { dist += sqr_(center.x - bbox.max_.x); }
+
+        if (center.y < bbox.min_.y) { dist += sqr_(center.y - bbox.min_.y); }
+        else if (center.y > bbox.max_.y) { dist += sqr_(center.y - bbox.max_.y); }
+
+        if (center.z < bbox.min_.z) { dist += sqr_(center.z - bbox.min_.z); }
+        else if (center.z > bbox.max_.z) { dist += sqr_(center.z - bbox.max_.z); }
+
+        return radius * radius > dist;
+    }
+
 private:
+    static inline float sqr_(float s) { return s * s; }
     glm::vec3   min_;
     glm::vec3   max_;
 };

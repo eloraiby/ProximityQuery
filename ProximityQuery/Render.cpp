@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <cassert>
+#include <glm/glm/gtx/transform.hpp>
 
 using namespace std;
 using namespace glm;
@@ -45,7 +46,7 @@ Shader::fromStrings(const std::string& vs, const std::string& fs) {
 
     glLinkProgram(progId);
     if (glGetError() != GL_NO_ERROR) {
-        glGetProgramInfoLog(vsId, BUFF_SIZE, &strLen, str);
+        glGetProgramInfoLog(progId, BUFF_SIZE, &strLen, str);
         cerr << "Error linking program: " << endl << str << endl;
         return nullptr;
     }
@@ -162,7 +163,7 @@ LineQueueView::~LineQueueView() {
 }
 
 void
-LineQueueView::addLine(const glm::mat4& mvp, const glm::vec3& v0, const glm::vec3& v1, const glm::vec4& color) {
+LineQueueView::queueLine(const glm::mat4& mvp, const glm::vec3& v0, const glm::vec3& v1, const glm::vec4& color) {
     if (lineCount_ + 1 > maxLineCount_) {
         flush();
         lineCount_ = 0;
@@ -171,6 +172,34 @@ LineQueueView::addLine(const glm::mat4& mvp, const glm::vec3& v0, const glm::vec
     verts_[lineCount_ * 2] = Vertex(mvp * vec4(v0, 1.0f), color);
     verts_[lineCount_ * 2 + 1] = Vertex(mvp * vec4(v1, 1.0f), color);
     ++lineCount_;
+}
+
+void
+LineQueueView::queueCircleXY(const glm::mat4& mvp, float radius, float step, const glm::vec4& color) {
+    for (float a = 0; a < glm::pi<float>() * 2.0f; a += step) {
+        queueLine(mvp, radius * vec3(cos(a), sin(a), 0.0f), radius * vec3(cos(a + step), sin(a + step), 0.0f), color);
+    }
+}
+
+void
+LineQueueView::queueCircleYZ(const glm::mat4& mvp, float radius, float step, const glm::vec4& color) {
+    for (float a = 0; a < glm::pi<float>() * 2.0f; a += step) {
+        queueLine(mvp, radius * vec3(0.0f, cos(a), sin(a)), radius * vec3(0.0f, cos(a + step), sin(a + step)), color);
+    }
+}
+
+void
+LineQueueView::queueCircleXZ(const glm::mat4& mvp, float radius, float step, const glm::vec4& color) {
+    for (float a = 0; a < glm::pi<float>() * 2.0f; a += step) {
+        queueLine(mvp, radius * vec3(cos(a), 0.0f, sin(a)), radius * vec3(cos(a + step), 0.0f, sin(a + step)), color);
+    }
+}
+
+void
+LineQueueView::queueCirclesXYZ(const glm::mat4& mvp, float radius, float step, const glm::vec4& color) {
+    queueCircleXY(mvp, radius, step, color);
+    queueCircleYZ(mvp, radius, step, color);
+    queueCircleXZ(mvp, radius, step, color);
 }
 
 void
