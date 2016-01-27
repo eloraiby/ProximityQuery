@@ -203,6 +203,43 @@ LineQueueView::queueCirclesXYZ(const glm::mat4& mvp, float radius, float step, c
 }
 
 void
+LineQueueView::queueCube(const glm::mat4& mvp, const AABB& bbox, bool showInterior, const glm::vec4& color) {
+    vec3    v0 = bbox.min();
+    vec3    v7 = bbox.max();
+    vec3    v1 = vec3(v0.x, v0.y, v7.z);
+    vec3    v2 = vec3(v7.x, v0.y, v7.z);
+    vec3    v3 = vec3(v7.x, v0.y, v0.z);
+
+    vec3    v4 = vec3(v7.x, v7.y, v0.z);
+    vec3    v5 = vec3(v0.x, v7.y, v0.z);
+    vec3    v6 = vec3(v0.x, v7.y, v7.z);
+
+    //
+    if (showInterior) {
+        queueLine(mvp, v0, v7, color);
+        queueLine(mvp, v3, v6, color);
+        queueLine(mvp, v5, v2, color);
+        queueLine(mvp, v4, v1, color);
+    }
+    //
+
+    queueLine(mvp, v0, v1, color);
+    queueLine(mvp, v1, v2, color);
+    queueLine(mvp, v2, v3, color);
+    queueLine(mvp, v3, v0, color);
+
+    queueLine(mvp, v4, v5, color);
+    queueLine(mvp, v5, v6, color);
+    queueLine(mvp, v6, v7, color);
+    queueLine(mvp, v7, v4, color);
+
+    queueLine(mvp, v0, v5, color);
+    queueLine(mvp, v3, v4, color);
+    queueLine(mvp, v2, v7, color);
+    queueLine(mvp, v1, v6, color);
+}
+
+void
 LineQueueView::flush() {
     glBindBuffer(GL_ARRAY_BUFFER, vb_);
     glBufferSubData(GL_ARRAY_BUFFER, 0, lineCount_ * 2 * sizeof(Vertex), verts_);

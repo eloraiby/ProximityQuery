@@ -71,6 +71,8 @@ struct LineQueueView {
 
     void            queueCirclesXYZ(const glm::mat4& mvp, float radius, float step, const glm::vec4& color);
 
+    void            queueCube(const glm::mat4& mvp, const AABB& bbox, bool showInterior, const glm::vec4& color);
+
     void            flush();
 
     static Ptr      create(size_t maxLineCount);

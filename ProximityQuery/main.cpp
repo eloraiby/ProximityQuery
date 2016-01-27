@@ -20,6 +20,40 @@
 using namespace glm;
 using namespace std;
 
+struct MainUi {
+    vec3        pointSphericalCoordinates;  // point spherical coordinates
+    float       sphereRadius;               // proximity query radius
+    bool        showAABB;                   // show bounding box
+    bool        showClosest;                // show closest
+    int         hScroll;                    // horizontal scrolling
+    bool        collapse;                   // collapse show
+    float       rotationAngle;              // rotation angle
+    vec3        rotationAxis;               // rotation axis
+
+    static MainUi   create(float radius) {
+        return {
+            vec3(radius, 0.0f, 0.0f),   // pointSphericalCoordinates
+            radius,                     // sphereRadius
+            true,                       // showAABB
+            true,                       // showClosest
+            0,                          // hScroll
+            false,                      // collapse
+            0.0f,                       // rotationAngle
+            vec3(0.0f, 1.0f, 0.0f),     // rotationAxis
+        };
+    }
+};
+
+struct MeshEntry {
+    const char* uiString;
+    const char* fileName;
+};
+
+MeshEntry gMeshEntries[] = {
+    {"Load Monkey",      "monkey.obj"},
+    {"Load Tetrahedra",  "tetra.obj" }
+};
+
 void errorCallback(int error, const char* descriptor) {
     cerr << "GLFW3 Error 0x" << std::hex << error << std::dec << " - " << descriptor << endl;
 }
@@ -28,42 +62,32 @@ void errorCallback(int error, const char* descriptor) {
 int glfwscroll = 0;
 
 void scrollCallback(GLFWwindow* win, double scrollX, double scrollY) {
-    glfwscroll = scrollX;
+    glfwscroll = -scrollY;
 }
 
-int main(int argc, char* argv[]) {
-    if (!glfwInit()) {
-        exit(EXIT_FAILURE);
-    }
-
-    glfwSetErrorCallback(errorCallback);
-
+void doAllThings() {
     GLFWwindow* window = glfwCreateWindow(1024, 800, "Proximity Query", NULL, NULL);
     
     if (!window) {
-        glfwTerminate();
-        exit(EXIT_FAILURE);
+        cerr << "Unable to create window";
+        return;
     }
 
     glfwMakeContextCurrent(window);
 
     if (glewInit() != GLEW_OK) {
-        cout << "unable to init glew" << endl;
-        glfwTerminate();
-        exit(EXIT_FAILURE);
+        cout << "Error: unable to init glew" << endl;
+        return;
     }
-
     if (!GLEW_VERSION_3_2) {
-        cout << "opengl version not supported!" << endl;
-        glfwTerminate();
-        exit(EXIT_FAILURE);
+        cout << "Error: opengl version not supported!" << endl;
+        return;
     }
 
     auto mesh = loadFrom("monkey.obj");
 
     if (mesh == nullptr) {
-        glfwTerminate();
-        exit(EXIT_FAILURE);
+        return;
     }
     else {
         cout << "Mesh Loaded!" << endl;
@@ -73,15 +97,13 @@ int main(int argc, char* argv[]) {
 
     if (meshShader == nullptr) {
         cerr << "Error: unable to load mesh shader" << endl;
-        glfwTerminate();
-        exit(EXIT_FAILURE);
+        return;
     }
 
     auto meshView = TriMeshView::from(mesh);
     if (meshView == nullptr) {
         cerr << "Error: unable to create meshView" << endl;
-        glfwTerminate();
-        exit(EXIT_FAILURE);
+        return;
     }
 
     auto lineShader = LineShader::instance();
@@ -89,34 +111,22 @@ int main(int argc, char* argv[]) {
     auto lineQueueView = LineQueueView::create(8192);
     if (lineQueueView == nullptr) {
         cerr << "Error: unable to create lineQueueView" << endl;
-        glfwTerminate();
-        exit(EXIT_FAILURE);
+        return;
     }
 
     // Init UI
     if (!imguiRenderGLInit("DroidSans.ttf"))
     {
-        fprintf(stderr, "Could not init GUI renderer.\n");
-        exit(EXIT_FAILURE);
+        cerr << "Could not init GUI renderer." << endl;
+        return;
     }
 
-    glClearColor(0.8f, 0.8f, 0.8f, 1.f);
-
-    // imgui states
-    bool checked1 = false;
-    bool checked2 = false;
-    bool checked3 = true;
-    bool checked4 = false;
-    float value1 = 50.f;
-    float value2 = 30.f;
-    int scrollarea1 = 0;
-    int scrollarea2 = 0;
-
     // glfw scrolling
-    int glfwscroll = 0;
+    int mscroll = 0;
 
+    auto radius = glm::length(mesh->bbox().max() - mesh->bbox().min());
+    auto mainUi = MainUi::create(radius);
 
-    float   i = 0.0f;
     glfwSetScrollCallback(window, scrollCallback);
 
     while (!glfwWindowShouldClose(window)) {
@@ -132,7 +142,7 @@ int main(int argc, char* argv[]) {
         glDisable(GL_CULL_FACE);
         auto mv = lookAt(vec3(0.0f, 0.0f, -3.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f))
             * scale(mat4(1.0f), vec3(0.5f, 0.5f, 0.5f))
-            * mat4(angleAxis(i, normalize(vec3(1.0f, 1.0f, 0.5f))));
+            * mat4(angleAxis(mainUi.rotationAngle, normalize(mainUi.rotationAxis)));
 
         auto proj = perspective(glm::pi<float>() / 4.0f, width / (float)height, 1.0f, 1000.0f);
 
@@ -141,15 +151,49 @@ int main(int argc, char* argv[]) {
         auto mvp = proj * mv;
 
         auto step = 0.1f;
-        auto radius = 1.5f;
 
-        lineQueueView->queueCircleXY(mvp, radius, step, vec4(0.0f, 0.0f, 1.0f, 0.0f));
-        lineQueueView->queueCircleYZ(mvp, radius, step, vec4(1.0f, 0.0f, 0.0f, 0.0f));
-        lineQueueView->queueCircleXZ(mvp, radius, step, vec4(0.0f, 1.0f, 0.0f, 0.0f));
+
+
+        if (mainUi.showAABB) {
+            lineQueueView->queueCube(mvp, mesh->bbox(), false, vec4(1.0f, 1.0f, 0.0f, 0.0f));
+        }
+
+        auto r = mainUi.pointSphericalCoordinates.x;
+        auto teta = mainUi.pointSphericalCoordinates.y;
+        auto phi = mainUi.pointSphericalCoordinates.z;
+
+        auto pt = vec3(r * cos(teta) * sin(phi), r * sin(teta) * sin(phi), r * cos(phi));
+
+        auto queryMvp = mvp * translate(mat4(1.0f), pt);
+
+        // box/sphere intersection
+        auto intersectColor = vec4(1.0f, 1.0f, 0.0f, 0.0f);
+        if (AABB::intersectSphere(mesh->bbox(), pt, mainUi.sphereRadius)) {
+            intersectColor = vec4(1.0f, 0.0f, 0.0f, 0.0f);
+        }
+
+        lineQueueView->queueCirclesXYZ(queryMvp, mainUi.sphereRadius, 0.1f, intersectColor);
+        lineQueueView->queueCirclesXYZ(queryMvp, 0.15f, 0.1f, intersectColor);
+
+        // sphere/closest point
+        auto closestPoint = TriMesh::closestOnMesh(mesh, pt);
+        
+
+
+        intersectColor = vec4(1.0f, 1.0f, 0.0f, 0.0f);
+        if (glm::length(closestPoint - pt) < mainUi.sphereRadius) {
+            intersectColor = vec4(1.0f, 0.0f, 0.0f, 0.0f);
+        }
+
+        lineQueueView->queueLine(mvp, pt, closestPoint, intersectColor);
+
+        if (mainUi.showClosest) {
+            auto mvpClosest = mvp * translate(mat4(1.0f), closestPoint);
+            lineQueueView->queueCube(mvpClosest, AABB(vec3(-0.025f, -0.025f, -0.025f), vec3(0.025f, 0.025f, 0.025f)), true, intersectColor);
+        }
 
         lineQueueView->flush();
 
-        
         // render UI
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -158,11 +202,10 @@ int main(int argc, char* argv[]) {
         // Mouse states
         unsigned char mousebutton = 0;
         //int mscroll = 0;
-        //if (currentglfwscroll < glfwscroll)
-        //    mscroll = 2;
-        //if (currentglfwscroll > glfwscroll)
-        //    mscroll = -2;
-        //glfwscroll = currentglfwscroll;
+        if (glfwscroll != mscroll) {
+            mscroll = glfwscroll;
+        }
+
         double mousex; double mousey;
         glfwGetCursorPos(window, &mousex, &mousey);
         mousey = height - mousey;
@@ -173,78 +216,70 @@ int main(int argc, char* argv[]) {
         if (leftButton == GLFW_PRESS)
             mousebutton |= IMGUI_MBUT_LEFT;
 
-        imguiBeginFrame(mousex, mousey, mousebutton, glfwscroll);//mscroll);
+        imguiBeginFrame(mousex, mousey, mousebutton, mscroll);
+        mscroll = 0;
+        glfwscroll = 0;
 
-        imguiBeginScrollArea("Scroll area", 10, 10, width / 5, height - 20, &scrollarea1);
+        imguiBeginScrollArea("Proximity Query", 10, 10, width / 5, height - 20, &mainUi.hScroll);
         imguiSeparatorLine();
         imguiSeparator();
 
-        imguiButton("Button");
-        imguiButton("Disabled button", false);
-        imguiItem("Item");
-        imguiItem("Disabled item", false);
-        toggle = imguiCheck("Checkbox", checked1);
-        if (toggle)
-            checked1 = !checked1;
-        toggle = imguiCheck("Disabled checkbox", checked2, false);
-        if (toggle)
-            checked2 = !checked2;
-        toggle = imguiCollapse("Collapse", "subtext", checked3);
-        if (checked3)
+        for (size_t i = 0; i < sizeof(gMeshEntries) / sizeof(MeshEntry); ++i) {
+            if (imguiButton(gMeshEntries[i].uiString)) {
+                auto tmp = loadFrom(gMeshEntries[i].fileName);
+                if (tmp != nullptr) {
+                    mesh = tmp;
+                    meshView = TriMeshView::from(mesh);
+                }
+            }
+        }
+
+        auto toggleCollapse = imguiCollapse("Collapse", "", mainUi.collapse);
+        if (!mainUi.collapse)
         {
             imguiIndent();
+
+            toggle = imguiCheck("Show Bounding Box", mainUi.showAABB);
+            if (toggle)
+                mainUi.showAABB = !mainUi.showAABB;
+
+            toggle = imguiCheck("Show Closest Point", mainUi.showClosest);
+            if (toggle)
+                mainUi.showClosest = !mainUi.showClosest;
+
             imguiLabel("Collapsible element");
             imguiUnindent();
         }
-        if (toggle)
-            checked3 = !checked3;
-        toggle = imguiCollapse("Disabled collapse", "subtext", checked4, false);
-        if (toggle)
-            checked4 = !checked4;
-        imguiLabel("Label");
-        imguiValue("Value");
-        imguiSlider("Slider", &value1, 0.f, 100.f, 1.f);
-        imguiSlider("Disabled slider", &value2, 0.f, 100.f, 1.f, false);
-        imguiIndent();
-        imguiLabel("Indented");
-        imguiUnindent();
-        imguiLabel("Unindented");
+        if (toggleCollapse)
+            mainUi.collapse = !mainUi.collapse;
 
-        imguiEndScrollArea();
-
-        imguiBeginScrollArea("Scroll area", 20 + width / 5, 500, width / 5, height - 510, &scrollarea2);
         imguiSeparatorLine();
+
+        imguiSlider("sc Radius",  &mainUi.pointSphericalCoordinates.x, 0.f, radius, 0.1f);
+        imguiSlider("sc Azimuth", &mainUi.pointSphericalCoordinates.y, -glm::pi<float>(), glm::pi<float>(), 0.1f);
+        imguiSlider("sc Polar",   &mainUi.pointSphericalCoordinates.z, -glm::pi<float>(), glm::pi<float>(), 0.1f);
+
+        imguiSlider("PQ Radius", &mainUi.sphereRadius, 0.f, radius, 0.1f);
+
+        imguiSeparatorLine();
+        imguiLabel("Rotation");
         imguiSeparator();
-        for (int i = 0; i < 100; ++i)
-            imguiLabel("A wall of text");
+
+        imguiSlider("axis X", &mainUi.rotationAxis.x, -1.0f, 1.0f, 0.01f);
+        imguiSlider("axis Y", &mainUi.rotationAxis.y, -1.0f, 1.0f, 0.01f);
+        imguiSlider("axis Z", &mainUi.rotationAxis.z, -1.0f, 1.0f, 0.01f);
+
+        imguiSlider("Angle",  &mainUi.rotationAngle, -glm::pi<float>(), glm::pi<float>(), 0.1f);
 
         imguiEndScrollArea();
+
         imguiEndFrame();
 
         imguiDrawText(30 + width / 5 * 2, height - 20, IMGUI_ALIGN_LEFT, "Free text", imguiRGBA(32, 192, 32, 192));
-        imguiDrawText(30 + width / 5 * 2 + 100, height - 40, IMGUI_ALIGN_RIGHT, "Free text", imguiRGBA(32, 32, 192, 192));
-        imguiDrawText(30 + width / 5 * 2 + 50, height - 60, IMGUI_ALIGN_CENTER, "Free text", imguiRGBA(192, 32, 32, 192));
-
-        imguiDrawLine(30 + width / 5 * 2, height - 80, 30 + width / 5 * 2 + 100, height - 60, 1.f, imguiRGBA(32, 192, 32, 192));
-        imguiDrawLine(30 + width / 5 * 2, height - 100, 30 + width / 5 * 2 + 100, height - 80, 2.f, imguiRGBA(32, 32, 192, 192));
-        imguiDrawLine(30 + width / 5 * 2, height - 120, 30 + width / 5 * 2 + 100, height - 100, 3.f, imguiRGBA(192, 32, 32, 192));
-
-        imguiDrawRoundedRect(30 + width / 5 * 2, height - 240, 100, 100, 5.f, imguiRGBA(32, 192, 32, 192));
-        imguiDrawRoundedRect(30 + width / 5 * 2, height - 350, 100, 100, 10.f, imguiRGBA(32, 32, 192, 192));
-        imguiDrawRoundedRect(30 + width / 5 * 2, height - 470, 100, 100, 20.f, imguiRGBA(192, 32, 32, 192));
-
-        imguiDrawRect(30 + width / 5 * 2, height - 590, 100, 100, imguiRGBA(32, 192, 32, 192));
-        imguiDrawRect(30 + width / 5 * 2, height - 710, 100, 100, imguiRGBA(32, 32, 192, 192));
-        imguiDrawRect(30 + width / 5 * 2, height - 830, 100, 100, imguiRGBA(192, 32, 32, 192));
 
         imguiRenderGLDraw(width, height);
 
-
         glDisable(GL_BLEND);
-
-
-
-        i += 0.01f;
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -252,6 +287,16 @@ int main(int argc, char* argv[]) {
 
     // Clean UI
     imguiRenderGLDestroy();
+}
+
+int main(int argc, char* argv[]) {
+    if (!glfwInit()) {
+        exit(EXIT_FAILURE);
+    }
+
+    glfwSetErrorCallback(errorCallback);
+
+    doAllThings();  // this guaranties that all shared_ptr resources are destroyed
 
     glfwTerminate();
     return 0;
