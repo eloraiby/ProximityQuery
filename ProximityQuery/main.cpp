@@ -148,6 +148,7 @@ void doAllThings() {
         return;
     }
 
+    auto pQuery = ProximityQuery::create(cMesh);
 
     auto lineShader = LineShader::instance();
 
@@ -224,6 +225,8 @@ void doAllThings() {
         lineQueueView->queueCirclesXYZ(queryMvp, 0.15f, 0.1f, intersectColor);
 
         // sphere/closest point
+        int leaf;
+        
         auto closestPoint = TriMesh::closestOnMesh(mesh, pt);
         
         intersectColor = vec4(1.0f, 1.0f, 0.0f, 0.0f);

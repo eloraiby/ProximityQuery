@@ -290,3 +290,55 @@ CollisionMesh::build(TriMesh::Ptr orig, size_t maxTriCountHint) {
  
     return Ptr(new CollisionMesh(rootId, nodes, leaves));
 }
+
+////////////////////////////////////////////////////////////////////////////////
+static glm::vec3
+closest(size_t node, const vector<AABBNode>& nodes, const vector<TriMesh::Ptr> meshes, const glm::vec3& pt, float radius, int& leaf) {
+    auto current = nodes[node];
+
+    int minLeaf = std::numeric_limits<int>::max();
+    float minDist = std::numeric_limits<float>::max();
+    vec3  minPt(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+
+    if (AABB::intersectSphere(current.bbox(), pt, radius)) {
+        if (current.type() == AABBNode::Type::NODE) { // this is a node, loop through all children
+            auto node = static_cast<AABBNode::Node&>(current);
+            for (size_t i = 0; i < 8; ++i) {
+                int leaf;
+                auto clpt = closest(node[i], nodes, meshes, pt, radius, leaf);
+                auto dist = glm::length(clpt - pt);
+                if (dist < minDist && dist < radius) {
+                    minDist = dist;
+                    minPt = clpt;
+                    minLeaf = leaf;
+                }
+            }
+            
+            leaf = minLeaf;
+            return minPt;
+
+        } else { // a leaf
+            auto lnode = static_cast<AABBNode::Leaf&>(current);
+            auto mesh = meshes[lnode.triMesh()];
+            auto clpt = TriMesh::closestOnMesh(mesh, pt);
+            auto dist = glm::length(clpt - pt);
+            if (dist < minDist && dist < radius) {
+                minDist = dist;
+                minPt = clpt;
+                minLeaf = node;
+            }
+
+            leaf = minLeaf;
+            return minPt;
+        }
+
+    } else {
+        leaf = minLeaf;
+        return minPt;
+    }
+}
+
+glm::vec3
+ProximityQuery::closestPointOnMesh(const glm::vec3& pt, float radius, int& leaf) const {
+    return closest(cm_->rootId(), cm_->nodes(), cm_->leaves(), pt, radius, leaf);
+}

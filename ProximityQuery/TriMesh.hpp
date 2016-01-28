@@ -217,7 +217,7 @@ private:
 struct ProximityQuery {
     typedef std::shared_ptr<ProximityQuery> Ptr;
 
-    glm::vec3       closestPointOnMesh(const glm::vec3& pt) const;
+    glm::vec3       closestPointOnMesh(const glm::vec3& pt, float radius, int& leaf) const;
 
     static Ptr      create(CollisionMesh::Ptr triMesh) { return Ptr(new ProximityQuery(triMesh)); }
 
