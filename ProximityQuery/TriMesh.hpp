@@ -74,6 +74,18 @@ struct AABB {
         return AABB(mn, mx);
     }
 
+    static inline bool overlap(const AABB& a, const AABB& b) {
+        if (a.max_.x < b.min_.x) return false;
+        if (a.max_.y < b.min_.y) return false;
+        if (a.max_.z < b.min_.z) return false;
+
+        if (a.min_.x > b.max_.x) return false;
+        if (a.min_.y > b.max_.y) return false;
+        if (a.min_.z > b.max_.z) return false;
+
+        return true;
+    }
+
     // Classic Graphcis Gems 2
     static bool  intersectSphere(const AABB& bbox, const glm::vec3& center, float radius);
     static void  subdivide(const AABB& bbox, std::vector<AABB>& outBoxes);
@@ -132,7 +144,6 @@ struct TriMesh {
 
 private:
     std::vector<Tri>    tris_;
-    std::vector<AABB>   triBoxes_;
     AABB            bbox_;
 };
 
@@ -148,19 +159,22 @@ struct AABBNode {
     const AABB& bbox() const { return bbox_; }
     Type        type() const { return type_; }
 
+    const glm::vec4&    color() const { return color_; }
+
     struct Node;
     struct Leaf;
 
 protected:
     AABBNode(const AABB& bbox, Type type) : bbox_(bbox), type_(type) {}
 
+    glm::vec4   color_;
     AABB        bbox_;
     Type        type_;
     size_t      index_[8];  // children or leaf index
 };
 
 struct AABBNode::Node : public AABBNode {
-    Node(const AABB& bbox, size_t children[]) : AABBNode(bbox, Type::LEAF) {
+    Node(const AABB& bbox, size_t children[]) : AABBNode(bbox, Type::NODE) {
         for (size_t i = 0; i < 8; ++i) {
             index_[i] = children[i];
         }
@@ -170,7 +184,8 @@ struct AABBNode::Node : public AABBNode {
 };
 
 struct AABBNode::Leaf : public AABBNode {
-    Leaf(const AABB& bbox, size_t triMesh) : AABBNode(bbox, Type::NODE) {
+    Leaf(const AABB& bbox, size_t triMesh, const glm::vec4& color) : AABBNode(bbox, Type::LEAF) {
+        color_ = color;
         index_[0] = triMesh;
     }
 
@@ -181,33 +196,33 @@ struct AABBNode::Leaf : public AABBNode {
 // Cache friendly collision mesh: This is done by building a bounding box tree and keeping leaves and nodes separate.
 // - the nodes are lightweight structures and the whole table is kept in L1 or L2 cache.
 // - only the closest leaf is kept in L1, L2 or L3 cache and nothing else is needed.
+// - As such, the processor will keep old volumes, if the point is still close enough
 //
 struct CollisionMesh {
     typedef std::shared_ptr<CollisionMesh> Ptr;
 
-
+    size_t                      rootId() const { return rootId_; }
     const std::vector<AABBNode>&      nodes() const { return nodes_; }
     const std::vector<TriMesh::Ptr>&  leaves() const { return leaves_; }
 
-    static Ptr      build(TriMesh::Ptr orig);
+    static Ptr      build(TriMesh::Ptr orig, size_t maxTriCountHint);
 
 private:
-    CollisionMesh(const std::vector<AABBNode>& nodes, const std::vector<TriMesh::Ptr>& leaves) {}
+    CollisionMesh(size_t rootId, const std::vector<AABBNode>& nodes, const std::vector<TriMesh::Ptr>& leaves) : rootId_(rootId), nodes_(nodes), leaves_(leaves) {}
+    size_t                      rootId_;    // given the way it's built right now, it's the last element! this might change however in the future
     std::vector<AABBNode>       nodes_;
     std::vector<TriMesh::Ptr>   leaves_;
 };
 
 struct ProximityQuery {
+    typedef std::shared_ptr<ProximityQuery> Ptr;
 
-    struct Result {
+    glm::vec3       closestPointOnMesh(const glm::vec3& pt) const;
 
-    private:
-        size_t      node_;
-        size_t      leaf_;
-
-        friend struct ProximityQuery;
-    };
+    static Ptr      create(CollisionMesh::Ptr triMesh) { return Ptr(new ProximityQuery(triMesh)); }
 
 private:
+
+    ProximityQuery(CollisionMesh::Ptr mesh) : cm_(mesh) {}
     CollisionMesh::Ptr  cm_;
 };

@@ -17,6 +17,7 @@
 //
 #include "TriMesh.hpp"
 
+#include <iostream>
 
 using namespace std;
 using namespace glm;
@@ -71,6 +72,8 @@ static ivec3 cubeTable[8] = {
 void
 AABB::subdivide(const AABB& bbox, std::vector<AABB>& outBoxes) {
     vec3 ps[2] = { bbox.min(), bbox.max() };
+
+    outBoxes.clear();
 
     vec3    vs[8];
     for (size_t i = 0; i < 8; ++i) {
@@ -163,18 +166,22 @@ struct BvhTri {
 struct BvhNode {
     typedef shared_ptr<BvhNode> Ptr;
 
-    AABB        box;
+    bool                isLeaf;
+    AABB                box;
 
     std::vector<BvhTri> tris;   // 0 indicates node, > 0 indicates leaf
-    BvhNode::Ptr    children[8];
+    std::vector<BvhNode::Ptr>    children;
 
-    BvhNode(const AABB& box, const std::vector<BvhTri>& tris) : box(box), tris(tris) {}
-    
-    static BvhNode::Ptr    subdivide(const std::vector<BvhTri>& tris, int maxTriCountHint);
+    BvhNode(bool isLeaf, const AABB& box, const std::vector<BvhTri>& tris) : isLeaf(isLeaf), box(box), tris(tris) {}
+    BvhNode(bool isLeaf, const AABB& box, const std::vector<BvhNode::Ptr>& children) : isLeaf(isLeaf), box(box), children(children) {}
+
+    static BvhNode::Ptr subdivide(const std::vector<BvhTri>& tris, size_t maxTriCountHint);
+
+    static size_t       mapToAABBNodes(BvhNode::Ptr node, std::vector<AABBNode>& nodes, std::vector<TriMesh::Ptr>& leaves);
 };
 
 BvhNode::Ptr
-BvhNode::subdivide(const std::vector<BvhTri>& tris, int maxTriCountHint) {
+BvhNode::subdivide(const std::vector<BvhTri>& tris, size_t maxTriCountHint) {
     auto minTs = glm::vec3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
     auto maxTs = glm::vec3(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
 
@@ -186,19 +193,85 @@ BvhNode::subdivide(const std::vector<BvhTri>& tris, int maxTriCountHint) {
     auto allTrisBox = AABB(minTs, maxTs);
 
     if (tris.size() > maxTriCountHint) {    // the tri count still exceeds the max limit hint
-        std::vector<AABB> outBoxes;
+        vector<AABB> outBoxes;
         AABB::subdivide(allTrisBox, outBoxes);
 
-        //
+        // 1st pass - count the number of triangles included in each box,
+        // if any box intersects all triangles then we have reached the limit and allTrisBox is a leaf
+        size_t tCount[8] = { 0 };
+        for (auto t : tris) {
+            for (size_t i = 0; i < outBoxes.size(); ++i ) {
+                if (AABB::overlap(outBoxes[i], t.box)) ++tCount[i];
+            }
+        }
 
+        for (auto tc : tCount) {
+            if (tc == tris.size()) {    // one of them has all the triangles, bail!
+                return Ptr(new BvhNode(true, allTrisBox, tris));
+            }
+        }
+
+        // 2nd pass - sort the triangles into their respective boxes
+        // rule: one triangle can belong to only one box
+        vector<BvhTri> boxTris[8];
+
+        for (auto t : tris) {
+            if (AABB::overlap(outBoxes[0], t.box)) boxTris[0].push_back(t);
+            else if (AABB::overlap(outBoxes[1], t.box)) boxTris[1].push_back(t);
+            else if (AABB::overlap(outBoxes[2], t.box)) boxTris[2].push_back(t);
+            else if (AABB::overlap(outBoxes[3], t.box)) boxTris[3].push_back(t);
+            else if (AABB::overlap(outBoxes[4], t.box)) boxTris[4].push_back(t);
+            else if (AABB::overlap(outBoxes[5], t.box)) boxTris[5].push_back(t);
+            else if (AABB::overlap(outBoxes[6], t.box)) boxTris[6].push_back(t);
+            else if (AABB::overlap(outBoxes[7], t.box)) boxTris[7].push_back(t);
+        }
+
+        // 3rd pass - build the node recursively
+        vector<Ptr> children;
+        for (size_t i = 0; i < 8; ++i) {
+            children.push_back(subdivide(boxTris[i], maxTriCountHint));
+        }
+
+        return Ptr(new BvhNode(false, allTrisBox, children));
     } else {
-        return Ptr(new BvhNode(allTrisBox, tris));
+        return Ptr(new BvhNode(true, allTrisBox, tris));
     }
 }
 
+float
+frand() {
+    return (float(rand() & 0xFFFF) / float(0x10000));
+}
+
+size_t
+BvhNode::mapToAABBNodes(BvhNode::Ptr node, std::vector<AABBNode>& nodes, std::vector<TriMesh::Ptr>& leaves) {
+    if (node->isLeaf) {
+        vector<TriMesh::Tri> tris;
+        auto color = vec4(frand(), frand(), frand(), 0.0f);
+        for (auto bt : node->tris) {
+            TriMesh::Tri tmp = bt.tri;
+            tmp.v[0].color = tmp.v[1].color = tmp.v[2].color = color;   // for debugging purposes
+            tris.push_back(tmp);
+        }
+
+        leaves.push_back(TriMesh::Ptr(new TriMesh(tris)));
+        nodes.push_back(AABBNode::Leaf(node->box, leaves.size() - 1, color));
+    } else {
+        int idx = 0;
+        size_t bIds[8] = { 0 };
+        for (auto ch : node->children) {
+            bIds[idx] = mapToAABBNodes(ch, nodes, leaves);
+            ++idx;
+        }
+        nodes.push_back(AABBNode::Node(node->box, bIds));
+    }
+    return nodes.size() - 1;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 CollisionMesh::Ptr
-CollisionMesh::build(TriMesh::Ptr orig) {
+CollisionMesh::build(TriMesh::Ptr orig, size_t maxTriCountHint) {
 
     // build the bvh triangles
     std::vector<BvhTri> bvhTris;
@@ -207,8 +280,13 @@ CollisionMesh::build(TriMesh::Ptr orig) {
         bvhTris.push_back(BvhTri(t));
     }
 
-    // 
-   
+    // build the root node
+    auto root = BvhNode::subdivide(bvhTris, maxTriCountHint);
 
-    return nullptr;
+    // collect the leaves
+    vector<AABBNode> nodes;
+    vector<TriMesh::Ptr> leaves;
+    size_t rootId = BvhNode::mapToAABBNodes(root, nodes, leaves);
+ 
+    return Ptr(new CollisionMesh(rootId, nodes, leaves));
 }

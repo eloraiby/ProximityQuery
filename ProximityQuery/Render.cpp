@@ -403,3 +403,42 @@ void
 TriMeshView::render(const glm::mat4& proj, const glm::mat4& mv, const glm::vec3& eye) const {
     TriMeshShader::instance()->render(proj, mv, eye, vb_, triCount_);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+void
+CollisionMeshView::render(const glm::mat4& proj, const glm::mat4& mv, const glm::vec3& eye) const {
+    for (auto tmv : triMeshes_) {
+        tmv->render(proj, mv, eye);
+    }
+}
+
+void
+CollisionMeshView::renderLeaves(LineQueueView::Ptr queue, const glm::mat4& proj, const glm::mat4& mv) const {
+    auto mvp = proj * mv;
+    for (auto l : leaves_) {
+        queue->queueCube(mvp, l.bbox(), false, l.color());
+    }
+}
+
+
+CollisionMeshView::Ptr
+CollisionMeshView::from(CollisionMesh::Ptr m) {
+    vector<AABBNode>    boxes;
+    vector<TriMeshView::Ptr> triMeshes;
+
+    auto nodes = m->nodes();
+    auto leaves = m->leaves();
+
+    for (auto n : nodes) {
+        if(n.type() == AABBNode::Type::LEAF)
+            boxes.push_back(n);
+    }
+
+    for (auto l : leaves) {
+        if (l->tris().size() > 0) {
+            triMeshes.push_back(TriMeshView::from(l));
+        }
+    }
+
+    return Ptr(new CollisionMeshView(m->rootId(), boxes, triMeshes));
+}

@@ -155,3 +155,18 @@ private:
     GLuint          vb_;
 };
 
+struct CollisionMeshView {
+    typedef std::shared_ptr<CollisionMeshView> Ptr;
+
+    void            render(const glm::mat4& proj, const glm::mat4& mv, const glm::vec3& eye) const;
+    void            renderLeaves(LineQueueView::Ptr queue, const glm::mat4& proj, const glm::mat4& mv) const;
+
+    static Ptr      from(CollisionMesh::Ptr m);
+
+private:
+    CollisionMeshView(size_t rootIdx, const std::vector<AABBNode>& leaves, const std::vector<TriMeshView::Ptr>& triMeshes) : rootIdx_(rootIdx), leaves_(leaves), triMeshes_(triMeshes) {}
+
+    size_t          rootIdx_;
+    std::vector<AABBNode>   leaves_;
+    std::vector<TriMeshView::Ptr>   triMeshes_;
+};

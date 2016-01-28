@@ -45,6 +45,7 @@
   </ItemGroup>
   <ItemGroup>
     <Media Include="monkey.obj" />
+    <Media Include="tetra.obj" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ObjLoader.hpp">

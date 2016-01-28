@@ -38,6 +38,8 @@
 using namespace glm;
 using namespace std;
 
+#define INITIAL_MAX_TRI_COUNT 32.0f
+
 struct MainUi {
     vec3        pointSphericalCoordinates;  // point spherical coordinates
     float       sphereRadius;               // proximity query radius
@@ -47,6 +49,11 @@ struct MainUi {
     bool        collapse;                   // collapse show
     float       rotationAngle;              // rotation angle
     vec3        rotationAxis;               // rotation axis
+    
+    float       maxTriCountHint;            // max triangle count hint in a leaf
+    bool        useCollisionMeshView;       // use collision mesh view for rendering (debugging)
+    bool        testBoxSubdiv;              // checkbox for box subdivision test
+    bool        showLeaves;                 // show collision mesh view leaves (debugging)
 
     static MainUi   create(float radius) {
         return {
@@ -58,6 +65,11 @@ struct MainUi {
             false,                      // collapse
             0.0f,                       // rotationAngle
             vec3(0.0f, 1.0f, 0.0f),     // rotationAxis
+            
+            INITIAL_MAX_TRI_COUNT,      // maxTriCountHint
+            true,                       // useCollisionMeshView
+            false,                      // testBoxSubdiv
+            true,                       // showLeaves
         };
     }
 };
@@ -105,10 +117,16 @@ void doAllThings() {
     auto mesh = loadFrom("monkey.obj");
 
     if (mesh == nullptr) {
+        cout << "Error: unable to load mesh" << endl;
         return;
-    }
-    else {
+    } else {
         cout << "Mesh Loaded!" << endl;
+    }
+
+    auto cMesh = CollisionMesh::build(mesh, INITIAL_MAX_TRI_COUNT);
+    if (cMesh == nullptr) {
+        cerr << "Error: Unable to build collision mesh" << endl;
+        return;
     }
 
     auto meshShader = TriMeshShader::instance();
@@ -123,6 +141,13 @@ void doAllThings() {
         cerr << "Error: unable to create meshView" << endl;
         return;
     }
+
+    auto cMeshView = CollisionMeshView::from(cMesh);
+    if (cMeshView == nullptr) {
+        cerr << "Error: unable to create cMeshView" << endl;
+        return;
+    }
+
 
     auto lineShader = LineShader::instance();
 
@@ -158,19 +183,24 @@ void doAllThings() {
         // render geometry
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
-        auto mv = lookAt(vec3(0.0f, 0.0f, -3.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f))
+        auto mv = lookAt(vec3(0.0f, 0.0f, 3.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f))
             * scale(mat4(1.0f), vec3(0.5f, 0.5f, 0.5f))
             * mat4(angleAxis(mainUi.rotationAngle, normalize(mainUi.rotationAxis)));
 
         auto proj = perspective(glm::pi<float>() / 4.0f, width / (float)height, 1.0f, 1000.0f);
 
-        meshView->render(proj, mv, vec3(0.0f, 0.0f, -20.0f));
+        if (mainUi.useCollisionMeshView) {
+            cMeshView->render(proj, mv, vec3(0.0f, 0.0f, -20.0f));
+            if (mainUi.showLeaves) {
+                cMeshView->renderLeaves(lineQueueView, proj, mv);
+            }
+        } else {
+            meshView->render(proj, mv, vec3(0.0f, 0.0f, -20.0f));
+        }
 
         auto mvp = proj * mv;
 
         auto step = 0.1f;
-
-
 
         if (mainUi.showAABB) {
             lineQueueView->queueCube(mvp, mesh->bbox(), false, vec4(1.0f, 1.0f, 0.0f, 0.0f));
@@ -208,13 +238,15 @@ void doAllThings() {
             lineQueueView->queueCube(mvpClosest, AABB(vec3(-0.025f, -0.025f, -0.025f), vec3(0.025f, 0.025f, 0.025f)), true, intersectColor);
         }
 
-        std::vector<AABB> boxes;
-        AABB::subdivide(mesh->bbox(), boxes);
+        // show subdivision test
+        if (mainUi.testBoxSubdiv) {
+            std::vector<AABB> boxes;
+            AABB::subdivide(mesh->bbox(), boxes);
 
-        for (auto b : boxes) {
-            lineQueueView->queueCube(mvp, b, true, vec4(0.0f, 1.0f, 0.0f, 0.0f));
+            for (auto b : boxes) {
+                lineQueueView->queueCube(mvp, b, true, vec4(0.0f, 1.0f, 0.0f, 0.0f));
+            }
         }
-
 
         lineQueueView->flush();
 
@@ -244,7 +276,7 @@ void doAllThings() {
         mscroll = 0;
         glfwscroll = 0;
 
-        imguiBeginScrollArea("Proximity Query", 10, 10, width / 5, height - 20, &mainUi.hScroll);
+        imguiBeginScrollArea("Proximity Query", 10, 10, width / 4, height - 20, &mainUi.hScroll);
         imguiSeparatorLine();
         imguiSeparator();
 
@@ -253,12 +285,14 @@ void doAllThings() {
                 auto tmp = loadFrom(gMeshEntries[i].fileName);
                 if (tmp != nullptr) {
                     mesh = tmp;
+                    cMesh = CollisionMesh::build(mesh, mainUi.maxTriCountHint);
+                    cMeshView = CollisionMeshView::from(cMesh);
                     meshView = TriMeshView::from(mesh);
                 }
             }
         }
 
-        auto toggleCollapse = imguiCollapse("Collapse", "", mainUi.collapse);
+        auto toggleCollapse = imguiCollapse("Visual/Testing", "", mainUi.collapse);
         if (!mainUi.collapse)
         {
             imguiIndent();
@@ -271,7 +305,18 @@ void doAllThings() {
             if (toggle)
                 mainUi.showClosest = !mainUi.showClosest;
 
-            imguiLabel("Collapsible element");
+            toggle = imguiCheck("Test Box Subdivision", mainUi.testBoxSubdiv);
+            if (toggle)
+                mainUi.testBoxSubdiv = !mainUi.testBoxSubdiv;
+
+            toggle = imguiCheck("Use Collision Mesh View (debug)", mainUi.useCollisionMeshView);
+            if (toggle)
+                mainUi.useCollisionMeshView = !mainUi.useCollisionMeshView;
+
+            toggle = imguiCheck("Show Leaves", mainUi.showLeaves);
+            if (toggle)
+                mainUi.showLeaves = !mainUi.showLeaves;
+
             imguiUnindent();
         }
         if (toggleCollapse)
@@ -295,11 +340,22 @@ void doAllThings() {
 
         imguiSlider("Angle",  &mainUi.rotationAngle, -glm::pi<float>(), glm::pi<float>(), 0.1f);
 
+        imguiSeparatorLine();
+        int lastCount = mainUi.maxTriCountHint;
+        imguiSlider("Max Triangle Count in Leaf", &mainUi.maxTriCountHint, 4.0f, 1024.0f, 4.0f);
+        if (lastCount != mainUi.maxTriCountHint) {
+            cMesh = CollisionMesh::build(mesh, mainUi.maxTriCountHint);
+            cMeshView = CollisionMeshView::from(cMesh);
+        }
+
         imguiEndScrollArea();
 
         imguiEndFrame();
 
-        imguiDrawText(30 + width / 5 * 2, height - 20, IMGUI_ALIGN_LEFT, "Free text", imguiRGBA(32, 192, 32, 192));
+        char buff[1024];
+        sprintf(buff, "CollisionMesh: %d nodes [%d bytes], %d triangle meshes", cMesh->nodes().size(), cMesh->nodes().size() * sizeof(AABBNode), cMesh->leaves().size());
+
+        imguiDrawText(30 + width / 4 * 2, height - 20, IMGUI_ALIGN_LEFT, buff, imguiRGBA(255, 255, 255, 255));
 
         imguiRenderGLDraw(width, height);
 
