@@ -1,3 +1,21 @@
+//
+// Triangular Mesh Proximity Query
+// Copyright(C) 2016 Wael El Oraiby
+// 
+// This program is free software : you can redistribute it and / or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU Affero General Public License for more details.
+// 
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.If not, see <http://www.gnu.org/licenses/>.
+//
+
 #include <iostream>
 #include <vector>
 
@@ -178,8 +196,6 @@ void doAllThings() {
         // sphere/closest point
         auto closestPoint = TriMesh::closestOnMesh(mesh, pt);
         
-
-
         intersectColor = vec4(1.0f, 1.0f, 0.0f, 0.0f);
         if (glm::length(closestPoint - pt) < mainUi.sphereRadius) {
             intersectColor = vec4(1.0f, 0.0f, 0.0f, 0.0f);
@@ -191,6 +207,14 @@ void doAllThings() {
             auto mvpClosest = mvp * translate(mat4(1.0f), closestPoint);
             lineQueueView->queueCube(mvpClosest, AABB(vec3(-0.025f, -0.025f, -0.025f), vec3(0.025f, 0.025f, 0.025f)), true, intersectColor);
         }
+
+        std::vector<AABB> boxes;
+        AABB::subdivide(mesh->bbox(), boxes);
+
+        for (auto b : boxes) {
+            lineQueueView->queueCube(mvp, b, true, vec4(0.0f, 1.0f, 0.0f, 0.0f));
+        }
+
 
         lineQueueView->flush();
 

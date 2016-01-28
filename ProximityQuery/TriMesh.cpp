@@ -1,3 +1,20 @@
+//
+// Triangular Mesh Proximity Query
+// Copyright(C) 2016 Wael El Oraiby
+// 
+// This program is free software : you can redistribute it and / or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU Affero General Public License for more details.
+// 
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.If not, see <http://www.gnu.org/licenses/>.
+//
 #include "TriMesh.hpp"
 
 
@@ -37,6 +54,34 @@ AABB::intersectSphere(const AABB& bbox, const glm::vec3& center, float radius) {
     else if (center.z > bbox.max_.z) { dist += sqr_(center.z - bbox.max_.z); }
 
     return radius * radius > dist;
+}
+
+static ivec3 cubeTable[8] = {
+    { 0, 1, 0 },
+    { 1, 1, 0 },
+    { 1, 1, 1 },
+    { 0, 1, 1 },
+
+    { 0, 0, 0 },
+    { 1, 0, 0 },
+    { 1, 0, 1 },
+    { 0, 0, 1 }
+};
+
+void
+AABB::subdivide(const AABB& bbox, std::vector<AABB>& outBoxes) {
+    vec3 ps[2] = { bbox.min(), bbox.max() };
+
+    vec3    vs[8];
+    for (size_t i = 0; i < 8; ++i) {
+        vs[i] = vec3(ps[cubeTable[i].x][0], ps[cubeTable[i].y][1], ps[cubeTable[i].z][2]);
+    }
+
+    auto center = (bbox.max() + bbox.min()) * 0.5f;
+
+    for (size_t i = 0; i < 8; ++i) {
+        outBoxes.push_back(AABB(glm::min(center, vs[i]), glm::max(center, vs[i])));
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,35 +159,6 @@ struct BvhTri {
     BvhTri(const TriMesh::Tri& t) : tri(t), box(TriMesh::Tri::boundingBox(tri)) {}
 };
 
-static ivec3 cubeTable[8] = {
-    {  0,  1,  0 },
-    {  1,  1, -1 },
-    {  1,  1,  1 },
-    { -1,  1,  1 },
-
-    { -1, -1, -1 },
-    {  1, -1, -1 },
-    {  1, -1,  1 },
-    { -1, -1,  1 }
-};
-
-typedef AABB     OctSubdivision[8];
-
-static void
-subdivideBox(const AABB& bbox, OctSubdivision subdivs) {
-    vec3 ps[2] = { bbox.min(), bbox.max() };
-
-    vec3    vs[8];
-    for (size_t i = 0; i < 8; ++i) {
-        vs[i] = vec3(ps[cubeTable[i].x][0], ps[cubeTable[i].y][1], ps[cubeTable[i].z][2]);
-    }
-
-    auto center = (bbox.max() + bbox.min()) * 0.5f;
-
-    for (size_t i = 0; i < 8; ++i) {
-        subdivs[i] = AABB(min(center, vs[i]), max(center, vs[i]));
-    }
-}
 
 struct BvhNode {
     typedef shared_ptr<BvhNode> Ptr;
@@ -153,16 +169,37 @@ struct BvhNode {
     BvhNode::Ptr    children[8];
 
     BvhNode(const AABB& box, const std::vector<BvhTri>& tris) : box(box), tris(tris) {}
-    static BvhNode::Ptr
-    subdivide(const std::vector<BvhTri>& tris) {
-
-    }
+    
+    static BvhNode::Ptr    subdivide(const std::vector<BvhTri>& tris, int maxTriCountHint);
 };
 
+BvhNode::Ptr
+BvhNode::subdivide(const std::vector<BvhTri>& tris, int maxTriCountHint) {
+    auto minTs = glm::vec3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+    auto maxTs = glm::vec3(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
+
+    for (auto t : tris) {
+        minTs = glm::min(minTs, t.box.min());
+        maxTs = glm::max(maxTs, t.box.max());
+    }
+
+    auto allTrisBox = AABB(minTs, maxTs);
+
+    if (tris.size() > maxTriCountHint) {    // the tri count still exceeds the max limit hint
+        std::vector<AABB> outBoxes;
+        AABB::subdivide(allTrisBox, outBoxes);
+
+        //
+
+    } else {
+        return Ptr(new BvhNode(allTrisBox, tris));
+    }
+}
 
 
 CollisionMesh::Ptr
 CollisionMesh::build(TriMesh::Ptr orig) {
+
     // build the bvh triangles
     std::vector<BvhTri> bvhTris;
 
@@ -170,8 +207,8 @@ CollisionMesh::build(TriMesh::Ptr orig) {
         bvhTris.push_back(BvhTri(t));
     }
 
-
-    
+    // 
+   
 
     return nullptr;
 }

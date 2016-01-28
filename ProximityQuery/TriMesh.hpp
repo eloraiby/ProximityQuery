@@ -1,4 +1,22 @@
 #pragma once
+//
+// Triangular Mesh Proximity Query
+// Copyright(C) 2016 Wael El Oraiby
+// 
+// This program is free software : you can redistribute it and / or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU Affero General Public License for more details.
+// 
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.If not, see <http://www.gnu.org/licenses/>.
+//
+
 
 //
 // Note: this is a cache friendly proximity query, given the following guidelines:
@@ -58,6 +76,7 @@ struct AABB {
 
     // Classic Graphcis Gems 2
     static bool  intersectSphere(const AABB& bbox, const glm::vec3& center, float radius);
+    static void  subdivide(const AABB& bbox, std::vector<AABB>& outBoxes);
 
 private:
     static inline float sqr_(float s) { return s * s; }
