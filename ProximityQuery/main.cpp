@@ -227,18 +227,23 @@ void doAllThings() {
         // sphere/closest point
         int leaf;
         
-        auto closestPoint = TriMesh::closestOnMesh(mesh, pt);
+        auto closestPoint = pQuery->closestPointOnMesh(pt, mainUi.sphereRadius, leaf);
         
         intersectColor = vec4(1.0f, 1.0f, 0.0f, 0.0f);
         if (glm::length(closestPoint - pt) < mainUi.sphereRadius) {
             intersectColor = vec4(1.0f, 0.0f, 0.0f, 0.0f);
-        }
+            lineQueueView->queueLine(mvp, pt, closestPoint, intersectColor);
+            if (leaf > cMesh->nodes().size()) {
+                cout << "ERROR!!!" << endl;
+            }
 
-        lineQueueView->queueLine(mvp, pt, closestPoint, intersectColor);
+            auto lBox = cMesh->nodes()[leaf];
+            lineQueueView->queueCube(mvp, lBox.bbox(), true, intersectColor);
 
-        if (mainUi.showClosest) {
-            auto mvpClosest = mvp * translate(mat4(1.0f), closestPoint);
-            lineQueueView->queueCube(mvpClosest, AABB(vec3(-0.025f, -0.025f, -0.025f), vec3(0.025f, 0.025f, 0.025f)), true, intersectColor);
+            if (mainUi.showClosest) {
+                auto mvpClosest = mvp * translate(mat4(1.0f), closestPoint);
+                lineQueueView->queueCube(mvpClosest, AABB(vec3(-0.025f, -0.025f, -0.025f), vec3(0.025f, 0.025f, 0.025f)), true, intersectColor);
+            }
         }
 
         // show subdivision test
@@ -291,6 +296,7 @@ void doAllThings() {
                     cMesh = CollisionMesh::build(mesh, mainUi.maxTriCountHint);
                     cMeshView = CollisionMeshView::from(cMesh);
                     meshView = TriMeshView::from(mesh);
+                    pQuery = ProximityQuery::create(cMesh);
                 }
             }
         }
@@ -331,7 +337,7 @@ void doAllThings() {
         imguiSlider("sc Azimuth", &mainUi.pointSphericalCoordinates.y, -glm::pi<float>(), glm::pi<float>(), 0.1f);
         imguiSlider("sc Polar",   &mainUi.pointSphericalCoordinates.z, -glm::pi<float>(), glm::pi<float>(), 0.1f);
 
-        imguiSlider("PQ Radius", &mainUi.sphereRadius, 0.f, radius, 0.1f);
+        imguiSlider("Proximity Query Radius", &mainUi.sphereRadius, 0.f, radius, 0.1f);
 
         imguiSeparatorLine();
         imguiLabel("Rotation");
@@ -349,6 +355,7 @@ void doAllThings() {
         if (lastCount != mainUi.maxTriCountHint) {
             cMesh = CollisionMesh::build(mesh, mainUi.maxTriCountHint);
             cMeshView = CollisionMeshView::from(cMesh);
+            pQuery = ProximityQuery::create(cMesh);
         }
 
         imguiEndScrollArea();
