@@ -125,7 +125,7 @@ TriMesh::Tri::closestOnTri(const Tri& tri, const glm::vec3& pt) {
         auto l1 = glm::length(pt - ps1);
         auto l2 = glm::length(pt - ps2);
 
-        auto minDistance = min(l0, min(l1, l2));
+	auto minDistance = glm::min(l0, glm::min(l1, l2));
 
         if (l0 == minDistance) return ps0;
         if (l1 == minDistance) return ps1;
