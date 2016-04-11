@@ -137,14 +137,14 @@ struct TriMesh {
         bbox_ = AABB(mn, mx);
     }
 
-    const AABB&     bbox() const { return bbox_; }
+    const AABB&         bbox() const { return bbox_; }
     const std::vector<Tri>&     tris() const { return tris_; }
 
     static glm::vec3    closestOnMesh(TriMesh::Ptr mesh, const glm::vec3& pt);
 
 private:
     std::vector<Tri>    tris_;
-    AABB            bbox_;
+    AABB                bbox_;
 };
 
 //
@@ -201,8 +201,8 @@ struct AABBNode::Leaf : public AABBNode {
 struct CollisionMesh {
     typedef std::shared_ptr<CollisionMesh> Ptr;
 
-    size_t                      rootId() const { return rootId_; }
-    const std::vector<AABBNode>&      nodes() const { return nodes_; }
+    size_t                          rootId() const { return rootId_; }
+    const std::vector<AABBNode>&    nodes() const { return nodes_; }
     const std::vector<TriMesh::Ptr>&  leaves() const { return leaves_; }
 
     static Ptr      build(TriMesh::Ptr orig, size_t maxTriCountHint);

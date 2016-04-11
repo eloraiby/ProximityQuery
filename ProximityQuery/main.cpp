@@ -95,6 +95,43 @@ void scrollCallback(GLFWwindow* win, double scrollX, double scrollY) {
     glfwscroll = -scrollY;
 }
 
+struct TrackBall {
+    glm::vec2   last;
+    glm::vec2   current;
+    bool        isOn;
+
+    TrackBall() : last(vec2()), current(vec2()), isOn(false) {}
+    glm::quat getRotation(float width, float height) const {
+        glm::vec3 va = project(last, width, height);
+        glm::vec3 vb = project(current, width, height);
+        float t = min(1.0f, glm::dot(va, vb));
+        float angle = acos(min(1.0f, glm::dot(va, vb)));
+        glm::vec3 axis = glm::cross(va, vb);
+        return glm::normalize(glm::quat(t, axis.x, axis.y, axis.z));
+    }
+
+private:
+    static glm::vec3 project(glm::vec2 pos, float width, float height) {
+        float   r = 0.8f;
+        float	dim = min (width, height);
+
+        auto	pt = vec2(2.0f * (pos.x - width * 0.5f) / dim,
+            2.0f * (pos.y - height * 0.5f) / dim);
+
+        float d, t, z;
+
+        d = sqrtf(pt.x * pt.x + pt.y * pt.y);
+        if (d < r * (float)0.70710678118654752440)	/* Inside sphere */
+            z = sqrt(r * r - d * d);
+        else	/* On hyperbola */
+        {
+            t = r / (float)1.41421356237309504880;
+            z = t * t / d;
+        }
+        return glm::normalize(vec3(pt.x, pt.y, z));
+    }
+};
+
 void doAllThings() {
     GLFWwindow* window = glfwCreateWindow(1024, 800, "Proximity Query", NULL, NULL);
     
@@ -171,12 +208,63 @@ void doAllThings() {
     auto radius = glm::length(mesh->bbox().max() - mesh->bbox().min());
     auto mainUi = MainUi::create(radius);
 
+    auto trackBall = TrackBall();
+
     glfwSetScrollCallback(window, scrollCallback);
 
+    auto prevRightButtonState = false;
+
     while (!glfwWindowShouldClose(window)) {
+        char buff[1024] = { 0 };
+
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
 
+        // Mouse states
+        unsigned char mousebutton = 0;
+        //int mscroll = 0;
+        if (glfwscroll != mscroll) {
+            mscroll = glfwscroll;
+        }
+
+        double mousex; double mousey;
+        glfwGetCursorPos(window, &mousex, &mousey);
+        mousey = height - mousey;
+        int leftButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+        int rightButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
+        int middleButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE);
+        int toggle = 0;
+        if (leftButton == GLFW_PRESS)
+            mousebutton |= IMGUI_MBUT_LEFT;
+
+        // arcball rotation routine
+        if (!prevRightButtonState && rightButton) {
+            trackBall.isOn = true;
+            trackBall.current = trackBall.last = glm::vec2(mousex, mousey);
+        }
+        else if(!rightButton) {
+            trackBall.isOn = false;
+        }
+
+        if (trackBall.isOn) {
+            trackBall.current = glm::vec2(mousex, mousey);
+
+            if (trackBall.last != trackBall.current) {
+                auto quat = trackBall.getRotation(width, height);
+                auto prevQuat = glm::angleAxis(mainUi.rotationAngle, mainUi.rotationAxis);
+                auto allQuat = quat * prevQuat;
+                auto angle = glm::angle(allQuat);
+                auto axis = glm::axis(allQuat);
+
+                mainUi.rotationAngle = angle;
+                mainUi.rotationAxis = axis;
+                trackBall.last = trackBall.current;
+            }
+        }
+
+        prevRightButtonState = rightButton;   // update
+
+        // end of arcball code
         glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         glViewport(0, 0, width, height);
@@ -263,23 +351,6 @@ void doAllThings() {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDisable(GL_DEPTH_TEST);
 
-        // Mouse states
-        unsigned char mousebutton = 0;
-        //int mscroll = 0;
-        if (glfwscroll != mscroll) {
-            mscroll = glfwscroll;
-        }
-
-        double mousex; double mousey;
-        glfwGetCursorPos(window, &mousex, &mousey);
-        mousey = height - mousey;
-        int leftButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
-        int rightButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
-        int middleButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE);
-        int toggle = 0;
-        if (leftButton == GLFW_PRESS)
-            mousebutton |= IMGUI_MBUT_LEFT;
-
         imguiBeginFrame(mousex, mousey, mousebutton, mscroll);
         mscroll = 0;
         glfwscroll = 0;
@@ -343,11 +414,8 @@ void doAllThings() {
         imguiLabel("Rotation");
         imguiSeparator();
 
-        imguiSlider("axis X", &mainUi.rotationAxis.x, -1.0f, 1.0f, 0.01f);
-        imguiSlider("axis Y", &mainUi.rotationAxis.y, -1.0f, 1.0f, 0.01f);
-        imguiSlider("axis Z", &mainUi.rotationAxis.z, -1.0f, 1.0f, 0.01f);
-
-        imguiSlider("Angle",  &mainUi.rotationAngle, -glm::pi<float>(), glm::pi<float>(), 0.1f);
+        sprintf(buff, "Axis (%.02f, %.02f, %.02f) - Angle (%.02f)", mainUi.rotationAxis.x, mainUi.rotationAxis.y, mainUi.rotationAxis.z, mainUi.rotationAngle * 180.0f / glm::pi<float>());
+        imguiLabel(buff);
 
         imguiSeparatorLine();
         int lastCount = mainUi.maxTriCountHint;
@@ -362,7 +430,6 @@ void doAllThings() {
 
         imguiEndFrame();
 
-        char buff[1024];
         sprintf(buff, "CollisionMesh: %d nodes [%d bytes], %d triangle meshes", cMesh->nodes().size(), cMesh->nodes().size() * sizeof(AABBNode), cMesh->leaves().size());
 
         imguiDrawText(30 + width / 4 * 2, height - 20, IMGUI_ALIGN_LEFT, buff, imguiRGBA(255, 255, 255, 255));
