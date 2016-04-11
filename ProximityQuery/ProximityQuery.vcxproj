@@ -157,6 +157,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ObjLoader.cpp" />
     <ClCompile Include="Render.cpp" />
+    <ClCompile Include="TrackBall.cpp" />
     <ClCompile Include="TriMesh.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -165,6 +166,7 @@
     <ClInclude Include="imgui\stb_truetype.h" />
     <ClInclude Include="ObjLoader.hpp" />
     <ClInclude Include="Render.hpp" />
+    <ClInclude Include="TrackBall.hpp" />
     <ClInclude Include="TriMesh.hpp" />
   </ItemGroup>
   <ItemGroup>

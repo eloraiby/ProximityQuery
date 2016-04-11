@@ -35,6 +35,8 @@
 #include "imgui/imgui.h"
 #include "imgui/imguiRenderGL3.h"
 
+#include "TrackBall.hpp"
+
 using namespace glm;
 using namespace std;
 
@@ -94,43 +96,6 @@ int glfwscroll = 0;
 void scrollCallback(GLFWwindow* win, double scrollX, double scrollY) {
     glfwscroll = -scrollY;
 }
-
-struct TrackBall {
-    glm::vec2   last;
-    glm::vec2   current;
-    bool        isOn;
-
-    TrackBall() : last(vec2()), current(vec2()), isOn(false) {}
-    glm::quat getRotation(float width, float height) const {
-        glm::vec3 va = project(last, width, height);
-        glm::vec3 vb = project(current, width, height);
-        float t = min(1.0f, glm::dot(va, vb));
-        float angle = acos(min(1.0f, glm::dot(va, vb)));
-        glm::vec3 axis = glm::cross(va, vb);
-        return glm::normalize(glm::quat(t, axis.x, axis.y, axis.z));
-    }
-
-private:
-    static glm::vec3 project(glm::vec2 pos, float width, float height) {
-        float   r = 0.8f;
-        float	dim = min (width, height);
-
-        auto	pt = vec2(2.0f * (pos.x - width * 0.5f) / dim,
-            2.0f * (pos.y - height * 0.5f) / dim);
-
-        float d, t, z;
-
-        d = sqrtf(pt.x * pt.x + pt.y * pt.y);
-        if (d < r * (float)0.70710678118654752440)	/* Inside sphere */
-            z = sqrt(r * r - d * d);
-        else	/* On hyperbola */
-        {
-            t = r / (float)1.41421356237309504880;
-            z = t * t / d;
-        }
-        return glm::normalize(vec3(pt.x, pt.y, z));
-    }
-};
 
 void doAllThings() {
     GLFWwindow* window = glfwCreateWindow(1024, 800, "Proximity Query", NULL, NULL);
@@ -237,34 +202,15 @@ void doAllThings() {
         if (leftButton == GLFW_PRESS)
             mousebutton |= IMGUI_MBUT_LEFT;
 
-        // arcball rotation routine
-        if (!prevRightButtonState && rightButton) {
-            trackBall.isOn = true;
-            trackBall.current = trackBall.last = glm::vec2(mousex, mousey);
-        }
-        else if(!rightButton) {
-            trackBall.isOn = false;
-        }
+        // trackball rotation routine
+        glm::quat rot = trackBall.update(glm::vec2(mousex, mousey), rightButton, width, height);
+        auto angle = glm::angle(rot);
+        auto axis = glm::axis(rot);
 
-        if (trackBall.isOn) {
-            trackBall.current = glm::vec2(mousex, mousey);
+        mainUi.rotationAngle = angle;
+        mainUi.rotationAxis = axis;
 
-            if (trackBall.last != trackBall.current) {
-                auto quat = trackBall.getRotation(width, height);
-                auto prevQuat = glm::angleAxis(mainUi.rotationAngle, mainUi.rotationAxis);
-                auto allQuat = quat * prevQuat;
-                auto angle = glm::angle(allQuat);
-                auto axis = glm::axis(allQuat);
-
-                mainUi.rotationAngle = angle;
-                mainUi.rotationAxis = axis;
-                trackBall.last = trackBall.current;
-            }
-        }
-
-        prevRightButtonState = rightButton;   // update
-
-        // end of arcball code
+        // end of trackball code
         glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         glViewport(0, 0, width, height);
