@@ -5,7 +5,7 @@ Copyright 2016(c) Wael El Oraiby, All rights reserved.
 ![random](https://github.com/eloraiby/ProximityQuery/raw/master/screenshot.png)
 
 ### Motivation
-If you are working in CAD, 3D modeling, animation or simulation you will probably need a library that performs proximity queries as fast as they can come. This project aims to find the closest point on a triangular mesh, which is useful for operations like sculpting or lighting. 
+If you are working in CAD, 3D modeling, animation or simulation you will probably need a library that performs proximity queries as fast as they can be (this is especially true when your mesh consists of millions of triangles). This project aims to find the closest point on a triangular mesh, which is useful for operations like sculpting or lighting. 
 
 The traditional algorithms and their implementations rarely take memory transfer overhead and multi-core processors in consideration. Most of them were developed back in the days where CPUs were on par with external memory when it comes to speed.
 There is however a way to extract the maximum performance out of the CPU by taking advantage of the cache memory using Data Oriented Algorithms.
