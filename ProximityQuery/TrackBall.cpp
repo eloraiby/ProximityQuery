@@ -7,13 +7,13 @@
 using namespace std;
 using namespace glm;
 
-glm::quat TrackBall::update(const glm::vec2& pos, bool pressed, float width, float height) {
+glm::quat
+TrackBall::update(const glm::vec2& pos, bool pressed, float width, float height) {
     // arcball rotation routine
     if (!wasPressed_ && pressed) {
         isOn_ = true;
         current_ = last_ = pos;
-    }
-    else if (!pressed) {
+    } else if (!pressed) {
         isOn_ = false;
     }
 
@@ -32,7 +32,8 @@ glm::quat TrackBall::update(const glm::vec2& pos, bool pressed, float width, flo
     return rotation_;
 }
 
-glm::quat TrackBall::getRotation(float width, float height) const {
+glm::quat
+TrackBall::getRotation(float width, float height) const {
     glm::vec3 va = project(last_, width, height);
     glm::vec3 vb = project(current_, width, height);
     float t = min(1.0f, glm::dot(va, vb));
@@ -40,7 +41,8 @@ glm::quat TrackBall::getRotation(float width, float height) const {
     return glm::normalize(glm::quat(t, axis.x, axis.y, axis.z));
 }
 
-glm::vec3 TrackBall::project(glm::vec2 pos, float width, float height) {
+glm::vec3
+TrackBall::project(glm::vec2 pos, float width, float height) {
     float   r = 0.8f;
     float	dim = min(width, height);
 

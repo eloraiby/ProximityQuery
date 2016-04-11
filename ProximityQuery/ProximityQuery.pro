@@ -25,7 +25,8 @@ SOURCES += main.cpp \
     imgui/imguiRenderGL3.cpp \
     ObjLoader.cpp \
     Render.cpp \
-    TriMesh.cpp
+    TriMesh.cpp \
+	TrackBall.cpp
 
 HEADERS += \
     imgui/imgui.h \
@@ -33,7 +34,8 @@ HEADERS += \
     imgui/stb_truetype.h \
     ObjLoader.hpp \
     Render.hpp \
-    TriMesh.hpp
+    TriMesh.hpp \
+	TrackBall.cpp
 
 OTHER_FILES += \
     fsLine.glsl \
