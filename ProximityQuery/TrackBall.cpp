@@ -1,3 +1,21 @@
+//
+// Triangular Mesh Proximity Query
+// Copyright(C) 2016 Wael El Oraiby
+// 
+// This program is free software : you can redistribute it and / or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU Affero General Public License for more details.
+// 
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.If not, see <http://www.gnu.org/licenses/>.
+//
+
 #include "TrackBall.hpp"
 
 #include <vector>
@@ -7,29 +25,31 @@
 using namespace std;
 using namespace glm;
 
-glm::quat
-TrackBall::update(const glm::vec2& pos, bool pressed, float width, float height) {
+TrackBall
+TrackBall::update(const TrackBall& prev, const glm::vec2& pos, bool pressed, float width, float height) const {
+    auto tb = TrackBall::from(prev);
+
     // arcball rotation routine
-    if (!wasPressed_ && pressed) {
-        isOn_ = true;
-        current_ = last_ = pos;
+    if (!prev.wasPressed_ && pressed) {
+        tb.isOn_ = true;
+        tb.current_ = tb.last_ = pos;
     } else if (!pressed) {
-        isOn_ = false;
+        tb.isOn_ = false;
     }
 
-    if (isOn_) {
-        current_ = pos;
+    if (tb.isOn_) {
+        tb.current_ = pos;
 
-        if (last_ != current_) {
+        if (tb.last_ != tb.current_) {
             auto newQuat = getRotation(width, height);
-            rotation_ = newQuat * rotation_;
-            last_ = current_;
+            tb.rotation_ = newQuat * prev.rotation_;
+            tb.last_ = current_;
         }
     }
 
-    wasPressed_ = pressed;   // update
+    tb.wasPressed_ = pressed;   // update
 
-    return rotation_;
+    return tb;
 }
 
 glm::quat

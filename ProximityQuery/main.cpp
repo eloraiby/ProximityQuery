@@ -173,7 +173,7 @@ void doAllThings() {
     auto radius = glm::length(mesh->bbox().max() - mesh->bbox().min());
     auto mainUi = MainUi::create(radius);
 
-    auto trackBall = TrackBall();
+    auto trackBall = TrackBall::create();
 
     glfwSetScrollCallback(window, scrollCallback);
 
@@ -203,9 +203,9 @@ void doAllThings() {
             mousebutton |= IMGUI_MBUT_LEFT;
 
         // trackball rotation routine
-        glm::quat rot = trackBall.update(glm::vec2(mousex, mousey), rightButton, width, height);
-        auto angle = glm::angle(rot);
-        auto axis = glm::axis(rot);
+        trackBall = trackBall.update(trackBall, glm::vec2(mousex, mousey), rightButton, width, height);
+        auto angle = glm::angle(trackBall.rotation());
+        auto axis = glm::axis(trackBall.rotation());
 
         mainUi.rotationAngle = angle;
         mainUi.rotationAxis = axis;
