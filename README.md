@@ -5,8 +5,14 @@ Copyright 2016(c) Wael El Oraiby, All rights reserved.
 ![random](https://github.com/eloraiby/ProximityQuery/raw/master/screenshot.png)
 
 ### Motivation
+If you are working in CAD, 3D modeling, animation or simulation you will probably need a library that performs proximity queries as fast as they can come. This project aims to find the closest point on a triangular mesh, which is useful for operations like sculpting or lighting. 
+
+The traditional algorithms and their implementations rarely take memory transfer overhead and multi-core processors in consideration. Most of them were developed back in the days where CPUs were on par with external memory when it comes to speed.
+There is however a way to extract the maximum performance out of the CPU by taking advantage of the cache memory using Data Oriented Algorithms.
+
+### Technique
 Nowadays processors have many cores and are fast. In fact, their speed is about 100x times greater than the external memory they feed on.
-To remedy this problem, they use multiple levels of cache memory. These are the number taken from `Core i7 Xeon 5500 Series Data Source Latency(approximate)[Pg. 22]`
+To remedy this problem, they use multiple levels of cache memory. These are the number taken from `Core i7 Xeon 5500 Series Data Source Latency (approximate)[Pg. 22]`
 and the related stackoverflow question: http://stackoverflow.com/questions/4087280/approximate-cost-to-access-various-caches-and-main-memory
 
 - `local  L1 CACHE hit, ~4 cycles(2.1 - 1.2 ns)`
@@ -18,18 +24,16 @@ and the related stackoverflow question: http://stackoverflow.com/questions/40872
 - `local  DRAM                                                   ~60 ns`
 - `remote DRAM                                                  ~100 ns`
 
-The traditional algorithms and their implementations rarely take that in consideration since most of them were developped back in the days where CPUs were on par with external memory when it comes to speed.
-There is however a way to extract the maximum performance out of the CPU by taking advantage of the cache memory using Data Oriented Algorithms.
 
-To this aim, this program was developped. The idea is quite simple, but quite effective:
+To this aim, this program was developed. The idea is quite simple, but quite effective:
 
-1 - Construct a Bounded Volume Hierearchy **BVH**
+1 - Construct a Bounded Volume Hierarchy **BVH**
 
 2 - Separate the nodes from the leaves (Data Orientation) :
   The distinction is that leaves are a batch of triangles __instead__ of a single or few triangles.
   * The node data is usually small and fits in L1-cache memory.
   * If the radius is small comparing to the mesh size, The nearest leaves fit in L2/L3-cache. This has the __nice consequence__ of letting the CPU/MMU make consecutive and relatively close queries faster since the data is warm in the cache.
-  * Data orientation has the benefit of making this algorithm thread safe since all the methods/functions are const and re-entrant.
+  * Data orientation has the benefit of making this algorithm thread safe since all the methods/functions are const and re-entrant (functional programming technique for multi-threading: once the query-mesh is constructed the queries are all ReadOnly operations).
 
 ### The Program/UI
 The UI should allow you to test and experiment with the proximity query:
