@@ -55,3 +55,8 @@ The heuristics for building the **BVH** is simple and explained in the code
   
 Most of the fun parts are documented in the code.
   
+### License
+
+The source code is licensed under Affero GPL version 3.0 or later. While I think this license is the best for OSS, you can obtain a more permissive license suitable for closed source programs for a modest fee. You can contact me for that [contact me](https://github.com/eloraiby/eloraiby.github.com/raw/master/email.svg).
+
+### [More Projects](http://eloraiby.github.io/)
